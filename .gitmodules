@@ -1,0 +1,6 @@
+[submodule "webida-server"]
+	path = webida-server
+	url = ../webida-server-mini
+[submodule "contents/webida-client"]
+	path = contents/webida-client
+	url = ../webida-client

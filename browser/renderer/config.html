@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Webida Bootstrapper </title>
+</head>
+<body>
+    <label>Client configuration</label>
+    <textarea id="boot-config-data" style="width:100%"></textarea>
+    <label>Embedded server configuration</label>
+    <textarea id="embedded-server-config-data" style="width:100%"></textarea>
+    <label>Starting Workspace </label><div style="text-align:center"><button> Boot Now </button></div>
+</body>
+
+<script type="text/javascript">
+    "use strict";
+
+    const ipcRenderer = require('electron').ipcRenderer;
+    var {dlog, initEnv } = require('./lib/boot-common.js');
+
+    function setTextAreaContents(id, object) {
+        let element = document.getElementById(id);
+        element.innerText = JSON.stringify(object, null, 4);
+        element.setAttribute('style',`width:100%; height:${element.scrollHeight}px`);
+    }
+
+    // renderer process needs to be initialize env vars
+    initEnv();
+    var bootConfig = window.localStorage.getItem('boot-config');
+    var configFile = require('../../webida-server/lib/config-file.js');
+    var serverConfig = configFile.loadSync();
+
+    if ( !bootConfig || process.env.WEBIDA_DEVMODE ) {
+        dlog("use default config");
+        bootConfig = require('./lib/default-config.js');
+    }
+
+    setTextAreaContents('boot-config-data', bootConfig);
+    setTextAreaContents('embedded-server-config-data', serverConfig);
+
+    //  1) load configuration & show it
+    //     if configuration is 'startable' then proceed or wait until button is clicked.
+    //     configuration should be loaded via Config- related classes in server
+    //  2) save configuration in window.sessionStorage
+    //  3) send boot-server event to main process
+    //  4) receive boot-client event from main process
+    //  5) if server is running (data from boot-client event0
+    //     load webida client
+
+    // loadWebidaClient();
+
+</script>
+</html>
