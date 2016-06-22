@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Electron</title>
+    <style>
+        body {
+            color: #45828E;
+            background-color: #A5ECFA;
+            font-family: 'Helvetica Neue', 'Open Sans', Helvetica, Arial, sans-serif;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            padding: 15px 30px;
+        }
+
+        h2 {
+            background-color: #76C7D7;
+            color: #FAF7F3;
+            font-weight: 400;
+            padding: 15px 30px;
+            margin: 0;
+        }
+
+        a {
+            color: #39AEC6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        pre, code {
+            font-family: "Menlo","Lucida Console",monospace;
+            border: 1px solid #076274;
+            background-color: #076274;
+            color: #C5F3FC;
+            border-radius: 3px;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 19px;
+            overflow: auto;
+            padding: 6px 10px;
+        }
+
+        code {
+            padding: 1px 4px 1px 4px;
+            font-size: 13px;
+        }
+
+        #holder {
+            border: 2px dashed #448691;
+            margin: 0 auto;
+            height: 300px;
+            color: #45828E;
+            font-size: 40px;
+            line-height : 200%;
+            text-align: center;
+            -webkit-user-select: none;
+        }
+
+        #holder.hover {
+            background-color: #7BDCEF;
+        }
+
+        #options {
+            height: 30px;
+            color: #45828E;
+            font-size: 16px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<h2> Welcome to Webida Desktop </h2>
+<div class="container">
+    <!--
+        1) server type should be selected
+        2) for embedded server, provide drag & drop interface to get default workspace
+        3) for remote server, provide a select box or grid to choose target workspace
+     -->
+
+    <p>Workspace type : <span id="workspace-type"></span></p>
+    <p>Workspace directory : <span id="workspace-path"></span></p>
+    <div id="holder">
+        <p style="vertical-align:middle"> Drag & Drop your workspace directory here!</p>
+    </div>
+</div>
+
+<div id="options">
+    <input id="remember-as-default" type="checkbox"> Remember as default
+</div>
+
+<script>
+    'use strict';
+    var common = require('./lib/common.js');
+    var util = require('util');
+    var debug = common.debugFactory('boot.html');
+
+    debug('boot.html starts scripting ');
+
+    document.ondragover = document.ondrop = function(e) {
+        e.preventDefault();
+        return false;
+    };
+
+    function showBootTargetInfo() {
+        document.getElementById('workspace-type').innerText = window.bootTarget.workspaceType;
+        document.getElementById('workspace-path').innerText = window.bootTarget.workspace;
+        debug(`boot target : type = ${window.bootTarget.workspaceType}, path/id = ${window.bootTarget.workspace}`);
+    }
+
+    var holder = document.getElementById('holder');
+    holder.ondragover = function () {
+        this.className = 'hover';
+        return false;
+    };
+    holder.ondragleave = holder.ondragend = function () {
+        this.className = '';
+        return false;
+    };
+    holder.ondrop = function (e) {
+        this.className = '';
+        e.preventDefault();
+        var file = e.dataTransfer.files[0];
+        // check file is dir
+        try {
+            window.bootTarget.workspaceType = 'local';
+            window.bootTarget.workspace = file.path;
+            showBootTargetInfo(file.path);
+            launch(true);
+        } catch (e) {
+            debug(e);
+            alert(e);
+        }
+    };
+
+    function launch() {
+        let rememerChecked = document.getElementById('remember-as-default').checked;
+        if (rememerChecked) {
+            window.desktopConfig.defaultWorkspace = window.bootTarget;
+            window.localStorage.setItem('webida-desktop-config', window.desktopConfig);
+        }
+        try {
+            validateBootTarget();
+            let params = window.bootTarget;
+            if (window.bootTarget.workspaceType !== 'local') {
+                params.ideArgs = desktopConfig.remotes[window.bootTarget.workspace];
+            }
+            common.ipc.send('boot-client', window.bootTarget);
+            delete window.bootTarget.ideArgs;
+            return true;
+        } catch (e) {
+            alert('launch faield ' + e);
+            throw e;
+        }
+    }
+
+    common.ipc.on('boot-result', function (event, arg) {
+        if (arg.error) {
+            alert('booting server failed : ' + arg.error);
+            if (window.closeOnError) {
+                common.rendererWindow.close();
+            } else {
+                showWindow();
+            }
+        } else {
+            debug('booting server succeeded. boot window will be closed soon.');
+            common.rendererWindow.close();
+        }
+    });
+
+    function saveDesktopConfig() {
+        let config = JSON.stringify(window.desktopConfig);
+        window.localStorage.setItem('webida-desktop-config', config);
+    }
+
+    function loadDesktopConfig() {
+        let config = window.localStorage.getItem('webida-desktop-config');
+        if (config) {
+            window.desktopConfig = JSON.parse(config);
+        } else {
+            config = require('./lib/default-config.js');
+            window.desktopConfig = config;
+            saveDesktopConfig();
+        }
+        debug('loaded desktop config ' +  util.inspect(desktopConfig));
+    }
+
+    function showWindow() {
+        common.rendererWindow.show();
+        window.isShown = true;
+    }
+
+    function validateBootTarget() {
+        let workspace = window.bootTarget.workspace;
+        if(!workspace) {
+            throw new Error ("no workspace specified");
+        }
+        let workspaceType = window.bootTarget.workspaceType;
+        let desktopConfig = window.desktopConfig;
+        try {
+            switch(workspaceType) {
+                case 'local':
+                    if (!common.hasDirectory(workspace)) {
+                        throw new Error (`${workspace} is not a directory`);
+                    }
+                    return true;
+                case 'remote':
+                    if (!desktopConfig.remotes[workspace]) {
+                        throw new Error (`${workspace} is not a valid workspace id`);
+                    }
+                    return true;
+                case 'legacy':
+                    if (!desktopConfig.remotes[workspace]) {
+                        throw new Error (`${workspace} is not a valid workspace id`);
+                    }
+                    if (!desktopConfig.legacySiteConfigs[workspace]) {
+                        throw new Error (`${workspace} has not been configured correctly`);
+                    }
+                    return true;
+                default:
+                    throw new Error (`${workspaceType} is not a valid workspace type`);
+            }
+        } catch(e) {
+            debug('validation failed %s', e);
+            throw e;
+        }
+        return false;
+    }
+
+    try {
+        // initially, boot window is not shown
+        loadDesktopConfig();
+        let queryParams = common.getQueryParamsFromLocation();
+        debug("boot query params " + JSON.stringify(queryParams));
+        if (queryParams.workspace) {
+            window.closeOnError = queryParams.closeOnError;
+            delete queryParams.closeOnError;
+            window.bootTarget = queryParams;
+        } else {
+            window.bootTarget = window.desktopConfig.defaultWorkspace;
+            debug('loadded default workspace in config' + util.inspect(window.bootTarget));
+        }
+
+        showBootTargetInfo();
+        launch();
+        // check boot target
+    } catch (e) {
+        if (window.closeOnError) {
+            common.rendererWindow.close();
+        } else {
+            showWindow();
+        }
+    }
+</script>
+
+</body>
+</html>
