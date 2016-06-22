@@ -14,38 +14,29 @@ let debuggableMenu =
 	[
 		// first top-level menu
 		{
-			label: '&File',
-			submenu: [{
-				label: '&Reload',
-				accelerator: 'CmdOrCtrl+R',
-				click: function () {
-					BrowserWindow.getFocusedWindow().webContents.reloadIgnoringCache();
-				}
-			}, {
-				label: '&Restart Server',
-				click: function () {
-					if(server) {
-						server.restart();
-					}
-				}
-			}]
-		},
-
-		// next top-level
-		{
-			label: '&Devtools',
-			submenu: [{
-				label: 'Toggle &Developer Tools',
-				accelerator: isDarwin ? 'Alt+Cmd+I' : 'Ctrl+Shift+I',
-				click: function () {
-					BrowserWindow.getFocusedWindow().toggleDevTools();
-				}
-			}]
-		}
+			label: '&View',
+			submenu: [
+                {
+                    label: '&Reload',
+                    accelerator: 'CmdOrCtrl+R',
+                    click: function () {
+                        BrowserWindow.getFocusedWindow().webContents.reloadIgnoringCache();
+                    }
+                },
+                {
+                    label: 'Toggle &Developer Tools',
+                    accelerator: isDarwin ? 'Alt+Cmd+I' : 'Ctrl+Shift+I',
+                    click: function () {
+                        BrowserWindow.getFocusedWindow().toggleDevTools();
+                    }
+                }
+            ]
+		} // end of main View menu
 	];
 
 module.exports = {
-	menuTemplate : process.env.WEBIDA_DEBUG ? debuggableMenu : [],
+    // currently, default menu will do
+	menuTemplate : __webida.env.debug ? null : debuggableMenu,
 	setServer(instance) {
 		server = instance;
 	}

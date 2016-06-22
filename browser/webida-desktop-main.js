@@ -10,24 +10,18 @@ require('../webida-server/lib/init-process.js');
 //   4) import internal local library, private for this module
 // all importing should use 'var'
 
-var {path, debugFactory, URI} = require ('../webida-server/lib/init-process.js');
-var debug = debugFactory(module);
+const { path, debugFactory, URI } = __webida.libs;
+const debug = debugFactory(module);
 
-var electron = require('electron');
-var EmbeddedWebidaServer = require('../webida-server/lib/EmbeddedWebidaServer.js');
+const electron = require('electron');
+const EmbeddedWebidaServer = require('../webida-server/lib/EmbeddedWebidaServer.js');
 
 let app = electron.app;
 let windowRegistry = { };   // map workspace id (type:fsid/dirname) to electron BrowserWindow object
-
-let programArgs = require('yargs')
-    .usage('$0 [workspace_path]')
-    .help('h').alias('h', 'help')
-    .argv;
-
 let bootWindow = null;
 let server = null;
 
-debug('program arguments %j', programArgs);
+debug('program arguments %j', __webida.args);
 
 app.on('window-all-closed', function () {
     debug('all windows are closed. quitting app now');
@@ -57,15 +51,14 @@ app.on('ready', function () {
             //   and start ide or set focus to current working ide
         });
         
-        if (shouldQuit) {
-            app.quit(); 
+        if (!shouldQuit) {
+            let Menu = electron.Menu;
+            if (!__webida.env.debug) {
+                Menu.setApplicationMenu(null);
+            }
         }
         else {
-            let Menu = electron.Menu;
-            let template = webidaDesktopMenu.menuTemplate;
-            if (template) {
-                Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-            }
+            app.quit(); 
         }
     }
 
@@ -148,9 +141,8 @@ app.on('ready', function () {
     function createIDEWindow(queryParams) {
         let win = new electron.BrowserWindow({
             center: true,
-            title: 'Webida IDE - ' + queryParams.workspace
-            // IDE window will resize self later, with window-size event
-            // webida client may resize main window automatically
+            title: 'Webida IDE - ' + queryParams.workspace,
+            autoHideMenuBar: true
         });
         let htmlPath = path.resolve (__dirname, "..", "contents",
             "webida-client", "apps", "ide", "src", "index.html");
@@ -188,17 +180,28 @@ app.on('ready', function () {
                     }
                     // boot target contains
                     //   workspace : workspace path
-                    return server.addDisposableWorkspace(bootTarget.workspace).then( (ws) => {
-                        const args = {
-                            serverUrl: server.serviceUrl,
-                            masterToken: server.addDisposableMasterToken(),
-                            workspace: ws.id + '/' + path.basename(ws.workspacePath),
-                            workspaceType: 'local'
-                        };
-                        debug("client boot args %j", args);
-                        return args;
-                    });
+                    let ws = null;
+                    return server.addDisposableWorkspaceAsync(bootTarget.workspace)
+                        .then( (newWorkspace) => {
+                            ws = newWorkspace;
+                            debug ({ ws } , 'gotWorkspace');
+                            return server.addMasterTokenAsync();
+                        })
+                        .then( (masterToken) => {
+                            debug( { masterToken} , 'got master token');
+                            const args = {
+                                serverUrl: server.serviceUrl,
+                                masterToken: masterToken.text,
+                                workspaceId: ws.id,
+                                // for legacy client compatiblity
+                                workspace: ws.id + '/' + path.basename(ws.workspacePath)
+                            };
+                            debug("client boot args %j", args);
+                            return args;
+                        });
+                    // end of promise chain
                 };
+
 
                 let bootClient = (ideArgs) => {
                     win = createIDEWindow(ideArgs);
@@ -228,7 +231,7 @@ app.on('ready', function () {
              }
         });
         initServerAsync().then( () => {
-            let workspaceArg = programArgs._[0];
+            let workspaceArg = __webida.args[0];
             if (workspaceArg) {
                 let bootTarget = createBootTargetArgument(workspaceArg);
                 bootWindow = createBootWindow(bootTarget);

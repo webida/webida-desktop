@@ -2,26 +2,26 @@
 
 require ('../../../webida-server/lib/init-process.js');
 
-var { debugFactory, fsx, URI, util } = require ('../../../webida-server/lib/init-process.js');
+const { debugFactory, fsx, URI, util } = __webida.libs; 
 
-var electron = require('electron');
+const electron = require('electron');
+
 if (!electron.ipcRenderer) {
     throw new Error('renderer/lib/common.js can be used in renderer process only');
 }
 
 function rendererDebugFactory (moduleName) {
     return function rendererDebug() {
-        var msg = util.format.apply(util, arguments);
         electron.ipcRenderer.send('debug', {
-            msg, moduleName 
+            moduleName,
+            args: arguments
         });
     };
 };
 
-debugFactory = rendererDebugFactory;
 
 function debugAlert() {
-    if (process.env.WEBIDA_DEBUG) {
+    if (__webida.env.debug) {
         let msg = '';
         let arg0 = arguments[0];
         if ( typeof(arg0) === 'object' && !(arg0 instanceof String) ){
