@@ -21,8 +21,6 @@ let windowRegistry = { };   // map workspace id (type:fsid/dirname) to electron 
 let bootWindow = null;
 let server = null;
 
-debug('program arguments %j', __webida.args);
-
 app.on('window-all-closed', function () {
     debug('all windows are closed. quitting app now');
     if (server) {
@@ -142,7 +140,7 @@ app.on('ready', function () {
         let win = new electron.BrowserWindow({
             center: true,
             title: 'Webida IDE - ' + queryParams.workspace,
-            autoHideMenuBar: true
+            autoHideMenuBar: !__webida.env.debug
         });
         let htmlPath = path.resolve (__dirname, "..", "contents",
             "webida-client", "apps", "ide", "src", "index.html");
@@ -196,7 +194,7 @@ app.on('ready', function () {
                                 // for legacy client compatiblity
                                 workspace: ws.id + '/' + path.basename(ws.workspacePath)
                             };
-                            debug("client boot args %j", args);
+                            debug(args, "client boots with arguments", args);
                             return args;
                         });
                     // end of promise chain
@@ -221,9 +219,9 @@ app.on('ready', function () {
                     .then( () => createIdeArgs() )
                     .then( (ideArgs) => bootClient(ideArgs) )
                     .catch( (e) => {
-                        debug('server booting failed and renderer should not proceed %j', e.stack);
+                        debug({ e }, 'server booting failed - renderer should not proceed');
                         event.sender.send('boot-result', {error :e.stack || e});
-                    });
+                    })
              },
 
              'restart-server-sync' : (event, arg) => { // from webida-client , async
