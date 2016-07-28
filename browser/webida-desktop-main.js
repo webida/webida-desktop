@@ -1,5 +1,5 @@
 "use strict";
-require('../webida-server/lib/init-process.js');
+require('../webida-server/lib/init/init-process.js');
 
 //
 // importing conventions
@@ -188,7 +188,7 @@ app.on('ready', function () {
                         .then( (masterToken) => {
                             debug( { masterToken} , 'got master token');
                             const args = {
-                                serverUrl: server.serviceUrl,
+                                serverUrl: server._serviceUrl,
                                 masterToken: masterToken.text,
                                 workspaceId: ws.id,
                                 // for legacy client compatiblity
