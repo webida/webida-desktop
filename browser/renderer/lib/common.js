@@ -1,6 +1,6 @@
 'use strict';
 
-require ('../../../webida-server/lib/init-process.js');
+require ('../../../webida-server/lib/init/init-process.js');
 
 const { debugFactory, fsx, URI, util } = __webida.libs; 
 
