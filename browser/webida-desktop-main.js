@@ -188,7 +188,7 @@ app.on('ready', function () {
                         .then( (masterToken) => {
                             debug( { masterToken} , 'got master token');
                             const args = {
-                                serverUrl: server._serviceUrl,
+                                serverUrl: server.serviceUrl,
                                 masterToken: masterToken.text,
                                 workspaceId: ws.id,
                                 // for legacy client compatiblity
